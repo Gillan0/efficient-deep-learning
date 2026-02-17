@@ -1,0 +1,242 @@
+\documentclass{beamer}
+\usepackage{graphicx} % Required for inserting images
+\usepackage{csvsimple}
+\usepackage{booktabs}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{amsmath}
+\usetheme{Berlin}
+
+\usepackage{verbatim}
+
+
+\setbeamertemplate{caption}[numbered]
+\setbeamertemplate{blocks}[rounded][shadow=true]
+\setbeamertemplate{footline}{%
+  \leavevmode%
+  \hbox{%
+  \begin{beamercolorbox}[wd=.9\paperwidth,ht=2.5ex,dp=1.125ex,leftskip=.3cm,rightskip=.3cm]{author in head/foot}%
+    \usebeamerfont{author in head/foot}%
+    \insertshorttitle\hspace*{2em}%
+    \insertframenumber\,/\,\inserttotalframenumber\hfill%
+  \end{beamercolorbox}}%
+  \vskip0pt%
+}
+
+
+\title{Transformers in Computer Vision and Hyperparameter exploration on ResNet
+}
+\subtitle{Efficient Deep Learning}
+\author{GILLARD Antonino}
+\date{2026/02/17}
+
+\begin{document}
+
+\maketitle
+
+\section{Paper presentation}
+\begin{frame}{Paper Introduction}
+  
+
+\centering
+\vspace{0.3cm}
+
+{\Large \bfseries
+An Image is Worth 16×16 Words : 
+
+Transformers for Image Recognition at Scale\\
+}
+
+\vspace{0.2cm}
+
+{\normalsize
+Dosovitskiy et al., 2021
+}
+
+\vspace{0.3cm}
+
+\begin{block}{Context}
+  \begin{itemize}
+    \item Image classification is mostly done by CNN
+    \item Transformers : NLP tasks
+    \item Attempts at using self attention mechanisms in image classification do not scale
+  \end{itemize}
+\end{block}
+
+\textbf{ResNet like networks are still state of the art for image classification}
+
+
+\end{frame}
+
+\begin{frame}{Main Idea : Treat Images like texts in Transformers}
+\begin{block}{Transformers in NLP}
+  \begin{itemize}
+    \item Texts are split into \textbf{tokens} : 2-4 character long pieces
+    \item Tokens are passed through an embedding (incl. positions)
+    \item Pass them through transformers and then output
+  \end{itemize}
+\end{block}
+
+\begin{block}{Vision Transformer (ViT)}
+  \begin{itemize}
+    \item Split images in 16x16 patches 
+    \item Patches are flattened then passed through an embedding (incl. 2D position in the image)
+    \item Pass them through transformers and then classification
+  \end{itemize}
+\end{block}
+
+\end{frame}
+
+\begin{frame}{ViT representation}
+  \begin{figure}
+    \centering
+    \hfill
+    \includegraphics[width=0.95\textwidth]{ressources/vit-overview.png}
+    \caption{ViT Model Overview}
+  \end{figure} 
+\end{frame}
+
+\begin{frame}{Performance Benchmarks}
+\begin{figure}
+  \centering
+  \small
+  % First graph
+  \begin{subfigure}[b]{0.75\textwidth}
+      \centering
+      \includegraphics[width=\textwidth]{ressources/results-1.png} % replace with your file
+  \end{subfigure}
+  \hfill
+  % Second graph
+  \begin{subfigure}[b]{0.75\textwidth}
+      \centering
+      \includegraphics[width=\textwidth]{ressources/results-2.png} % replace with your file
+  \end{subfigure}
+  \caption{Model evalutations}
+\end{figure}
+\end{frame}
+
+\begin{frame}{Paper Conclusion}
+  \begin{block}{Model performance}
+    \begin{itemize}
+      \item Reaches state of the art performance when trained on large datasets
+      \item CNN models such as BiT (ResNet) still outperform when trained on smaller datasets
+    \end{itemize}
+    Good potential for image transformers but they are still inefficient. 
+  \end{block}
+
+  \begin{block}{There is still some work to be done ...}
+    The paper only focuses on one task : \textbf{Image Classification}.
+    Although results are promising in that field, work still has to be done on other tasks (e.g. Detection)
+  \end{block}
+  
+\end{frame}
+
+\section{Hyperparameter exploration}
+
+\begin{frame}{Hyperparameter exploration} 
+
+\begin{columns}[T] 
+    \begin{column}{0.45\textwidth}
+        \begin{block}{ResNet18}
+            \begin{itemize}
+              \item 18-layer CNN 
+              \item Residual connections
+              \item Image classification
+            \end{itemize}
+        \end{block}
+    \end{column}
+    
+    \begin{column}{0.45\textwidth}
+        \centering
+        \includegraphics[height=2cm]{ressources/ResBlock.png} 
+        \captionof{figure}{ResNet architecture}
+    \end{column}
+\end{columns}
+
+
+Focus of Hyperparameter exploration strategy :
+\textbf{Learning Rate}
+
+\begin{table}[h]
+  \centering
+  \begin{tabular}{|c|c|c|c|c|}
+  \hline
+  \textbf{Learning Rate} & 0.1 & 0.01 & 0.001 \\ \hline
+  \textbf{Testing Loss} & 0.67 & 0.54 & 0.43 \\ \hline
+  \end{tabular}
+  \caption{First runs by modifying LR. ResNet18 model with SGD optimizer (weight decay : $5\times 10^{-4}$) and CosineAnnealing of period 20}
+\end{table}
+\end{frame}
+
+\begin{frame}{Optimizer and Scheduler Configurations}
+
+\begin{table}[h]
+  \centering
+  \begin{tabular}{|c|c|c|c|}
+  \hline
+  \textbf{Weight Decay} & \textbf{LR} & \textbf{Loss Function} & \textbf{Epoch} \\ \hline
+  $5\times 10^{-6}$ & $10^{-3}$ & Cross Entropy & $\approx 25$ \\ \hline
+  \end{tabular}
+  \caption{Common parameters across all trained models}
+\end{table}
+
+
+\begin{table}[h]
+  \centering
+  \begin{tabular}{|c|c|c|c|c|}
+  \hline
+  \textbf{Optimizer} & \textbf{LR} & \textbf{Momentum} & \textbf{Scheduler} & \textbf{Patience} \\ \hline
+  SGD & $10^{-3}$ & 0.9 & CosineAnnealingLR & N/A \\\hline
+  SGD & $10^{-3}$ & 0.9 & ReduceLROnPlateau & 5 \\ \hline
+  Adam & $10^{-3}$ & N/A & ReduceLROnPlateau & 5 \\ \hline
+  \end{tabular}
+  \caption{Differences between trained models}
+  \label{tab:model_diff}
+\end{table}
+
+\end{frame}
+
+\begin{frame}{Training Loss Evolution}
+    \centering
+    \begin{figure}
+        % Adam
+        \begin{subfigure}[b]{0.3\textwidth}
+            \centering
+            \includegraphics[width=\textwidth]{ressources/adam.png}
+            \caption{Adam}
+        \end{subfigure}
+        \hfill
+        % SGD Cosine
+        \begin{subfigure}[b]{0.3\textwidth}
+            \centering
+            \includegraphics[width=\textwidth]{ressources/cosine.png}
+            \caption{Cosine (SGD)}
+        \end{subfigure}
+        \hfill
+        % SGD Plateau
+        \begin{subfigure}[b]{0.3\textwidth}
+            \centering
+            \includegraphics[width=\textwidth]{ressources/sgd-plateau.png}
+            \caption{ReduceLR (SGD)}
+        \end{subfigure}
+        \vspace{0.3cm}
+        \caption{Training loss per epoch for different optimizers and schedulers.}
+    \end{figure}
+
+    \begin{itemize}
+      \item Start to see some overfitting
+      \item However, test accuracy went up during the plateau (+3\%)
+    \end{itemize}
+\end{frame}
+
+
+\begin{frame}{Model Accuracy}
+  \begin{figure}
+    \hfill
+    \centering
+    \includegraphics[width=\textwidth]{ressources/accuracy_vs_params.png}
+    \caption{Accuracy (\%) of each model per number of parameters}
+  \end{figure}
+\end{frame}
+
+\end{document}
