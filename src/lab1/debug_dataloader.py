@@ -1,3 +1,11 @@
+from torchvision.datasets import CIFAR10
+import numpy as np
+import torchvision.transforms as transforms
+import torch
+from torch.utils.data.dataloader import DataLoader
+
+from dataloader import c10train
+
 ## number of target samples for the final dataset
 num_train_examples = len(c10train)
 num_samples_subset = 15000
@@ -17,3 +25,4 @@ print(f"Subset of CIFAR10 dataset has {len(c10train_subset)} samples")
 # Finally we can define anoter dataloader for the training data
 trainloader_subset = DataLoader(c10train_subset,batch_size=32,shuffle=True)
 ### You can now use either trainloader (full CIFAR10) or trainloader_subset (subset of CIFAR10) to train your networks.
+trainloader = trainloader_subset
