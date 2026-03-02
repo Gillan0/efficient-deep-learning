@@ -46,3 +46,16 @@ Prepare a presentation for session 5, detailing your methodology and exploration
     - Architecture search and changes (depth, width, ...), data augmentation, pruning, quantization, ...
   - Calculate the scores of your architectures
   - Summarize your results on a plot with accuracy as a function of the score (with the 90% limit).
+
+GRAPH : Accuracy vs Score
+
+# NOTES FOR SCORE COMPUTATION
+* torch info to get $w$ and $f$
+* Best scores usually : 0.01 - 0.05
+* ResNet18 Half precision gives score of 2
+
++ conseils : pour score = p + ops
+On peut agir sur 3 trucs : 
+* Architecture dimensions : few lines of code + impact p & ops
+* half -> easy efficient, Int 4b / 8b -> very hard =. Must apply on w and to reduce both terms
+* pruning -> usntr = easy / only p | str = hard only ops
