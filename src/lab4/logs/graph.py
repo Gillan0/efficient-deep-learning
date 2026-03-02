@@ -2,7 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # Load CSV
-NAME = "cosine-mixup_pruned_retrained_60_82"
+NAME = "adam-mixup_pruned_retrained_recap"
 df = pd.read_csv(f"./src/lab4/logs/{NAME}.log")
 
 plt.figure(figsize=(10, 6))

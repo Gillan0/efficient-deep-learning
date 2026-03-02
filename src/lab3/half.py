@@ -17,14 +17,11 @@ from utils import progress_bar
 
 from dataloader import testloader
 
-import datetime
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--load', default="cosine_clone", type=str, help="Model to load")
 parser.add_argument('--half', action='store_true', help="Use half precision model (FP16)")
 parser.add_argument('--quarter', action='store_true', help="Use quarter precision model (FP8)")
-
-current_datetime = datetime.now().strftime("%Y%m%d_%H%M%S")
 
 args = parser.parse_args()
 
@@ -45,7 +42,7 @@ if args.load:
 
     print('==> Resuming from checkpoint..')
     assert os.path.isdir('./src/lab3/og_models/'), 'Error: no checkpoint directory found!'
-    checkpoint = torch.load('./src/lab3/og_models/' + args.load)
+    checkpoint = torch.load('./src/lab3/og_models/' + args.load, weights_only=False)
     net.load_state_dict(checkpoint['net'])
     best_acc = checkpoint['acc']
     start_epoch = 0

@@ -11,12 +11,16 @@ import os
 import argparse
 
 from resnet import *
+from utils import progress_bar
+from dataloader import testloader, trainloader
 
 import torchprofile
 
 def score(p_s, p_u, q_w, q_a, w, f):
     p = ((1 - p_s - p_u) * w * q_w / 32) / (5.6 * 10 ** 6)
     ops = ((1 - p_s) * max(q_w, q_a) * f / 32) / (2.8 * 10 ** 8)
+
+    print(f"p : {p:.4f}\nops : {ops:.4f}")
 
     return p + ops
 
@@ -27,64 +31,65 @@ def count_params(model, layer_type):
             total += sum(p.numel() for p in m.parameters())
     return total
 
-def count_macs(model, input_size=(1, 3, 32, 32)):
-    macs = 0
-
-    def conv_hook(self, input, output):
-        # input[0] shape: [batch, in_channels, H, W]
-        batch_size, in_c, H, W = input[0].shape
-        out_c, out_h, out_w = output.shape[1:4]
-        kernel_h, kernel_w = self.kernel_size
-        groups = self.groups
-        # MACs per conv layer
-        layer_macs = batch_size * out_c * out_h * out_w * (in_c // groups) * kernel_h * kernel_w
-        nonlocal macs
-        macs += layer_macs
-
-    def linear_hook(self, input, output):
-        batch_size = input[0].shape[0]
-        in_features = self.in_features
-        out_features = self.out_features
-        layer_macs = batch_size * in_features * out_features
-        nonlocal macs
-        macs += layer_macs
-
-    hooks = []
-
-    # register hooks
-    for m in model.modules():
-        if isinstance(m, nn.Conv2d):
-            hooks.append(m.register_forward_hook(conv_hook))
-        elif isinstance(m, nn.Linear):
-            hooks.append(m.register_forward_hook(linear_hook))
-
-    # run a dummy forward
-    device = next(model.parameters()).device
-    x = torch.randn(*input_size).to(device)
-    model.eval()
-    with torch.no_grad():
-        model(x)
-
-    # remove hooks
-    for h in hooks:
-        h.remove()
-
-    return macs
-
+def test(net):
+    net.eval()
     
+    test_loss = 0
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for batch_idx, (inputs, targets) in enumerate(testloader):
+            inputs = inputs.to(device)#.half()
+            targets =  targets.to(device)
+
+            outputs = net(inputs)
+            loss = criterion(outputs, targets)
+
+            test_loss += loss.item()
+            _, predicted = outputs.max(1)
+            total += targets.size(0)
+            correct += predicted.eq(targets).sum().item()
+
+            progress_bar(batch_idx, len(testloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
+                        % (test_loss/(batch_idx+1), 100.*correct/total, correct, total))
+
+    avg_loss = test_loss / len(testloader)
+    acc = 100. * correct / total
+    return loss, acc
+  
 if __name__ == "__main__":
-    linear_percentage = 0.6
-    convolutional_percentage = 0.83 
+    linear_percentage = 0.60
+    convolutional_percentage = 0.83
+
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     net = ResNet18()
+    net = net.to(device) 
+    #net.half()
+    BITS = 32#16
+
+
+    MODEL_DIR ="./src/lab3/og_models/"
+    MODEL_NAME = "cosine-mixup-60-83-pruned"
+
+
+    checkpoint = torch.load(MODEL_DIR + MODEL_NAME)
+    net.load_state_dict(checkpoint['net'])
+    criterion = nn.CrossEntropyLoss()    
+
+
+
+    if device == 'cuda':
+        net = torch.nn.DataParallel(net)
+        cudnn.benchmark = True
 
     conv_params = count_params(net, torch.nn.Conv2d)
     linear_params = count_params(net, torch.nn.Linear)
 
     w = conv_params + linear_params
-    f = count_macs(net)
-
     
+    input_tensor = torch.randn(1, 3, 32, 32)#.half()  
+    f = torchprofile.profile_macs(net, input_tensor)
 
     print(f"Conv params: {conv_params}")
     print(f"Conv pruning: {convolutional_percentage}")
@@ -97,5 +102,6 @@ if __name__ == "__main__":
     print(f"Total pruning percentage: { p_u:.4f}")
 
     print(f"MACS : {f}")
-    score = score(p_s=0, p_u=0, q_w=16, q_a=16, w=w, f=f)
-    print(f"Score : {score}")
+    score = score(p_s=0, p_u=p_u, q_w=BITS, q_a=BITS, w=w, f=f)
+    print(f"Score : {score:.4f}")
+    loss, acc = test(net)
