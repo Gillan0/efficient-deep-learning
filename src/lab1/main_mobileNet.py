@@ -11,25 +11,22 @@ import torchvision.transforms as transforms
 import os
 import argparse
 
-from resnet import *
+from mobilenet import MobileNetV2
 from utils import progress_bar
 
-from dataloader import testloader, trainloader
+from dataloader64 import testloader, trainloader
 #from debug_dataloader import trainloader
 
-# Binary Connect : 
-import binaryconnect
-import FP8Convert
 from mixup import mixup_data, mixup_criterion
 
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
-parser.add_argument('--lr', default=0.0001, type=float, help='learning rate')
+parser.add_argument('--lr', default=0.01, type=float, help='learning rate')
 parser.add_argument('--resume', '-r', action='store_true',
                     help='resume from checkpoint')
 parser.add_argument('--name', default="ckpt.pth", type=str, help='Model ID')
 parser.add_argument('--log', default='training.log', type=str, help='Log file name (.log)')
-parser.add_argument('--epoch', default=50, type=int, help='Number of epochs')
+parser.add_argument('--epoch', default=80, type=int, help='Number of epochs')
 parser.add_argument('--model', default="cosine", type=str, help="Model of choice : 'cosine', 'plateau', 'adam'")
 
 args = parser.parse_args()
@@ -44,43 +41,46 @@ classes = ('plane', 'car', 'bird', 'cat', 'deer',
 
 # Model
 print('==> Building model..')
-net = binaryconnect.BC(ResNet18()) 
-net = FP8Convert.FP8Convert(ResNet18())
-net.model = net.model.to(device) 
+net = MobileNetV2()
+net = net.to(device) 
 
-if not(args.name):
-    raise Exception("No model name")
+if device == 'cuda':
+    net = torch.nn.DataParallel(net)
+    cudnn.benchmark = True
 
-print('==> Resuming from checkpoint..')
-assert os.path.isdir('./src/lab3/og_models/'), 'Error: no checkpoint directory found!'
-checkpoint = torch.load('./src/lab3/og_models/' + args.name)
-net.model.load_state_dict(checkpoint['net'])
-best_acc = checkpoint['acc']
-start_epoch = 0
+if args.resume:
+    # Load checkpoint.
+    print('==> Resuming from checkpoint..')
+    assert os.path.isdir('./src/lab1/checkpoint/'), 'Error: no checkpoint directory found!'
+    checkpoint = torch.load('./src/lab1/checkpoint/ckpt.pth')
+    net.load_state_dict(checkpoint['net'])
+    best_acc = checkpoint['acc']
+    start_epoch = checkpoint['epoch']
+"""
+else:
+    time.
+"""
 criterion = nn.CrossEntropyLoss()
 
-if torch.cuda.device_count() > 1:
-    net.model = torch.nn.DataParallel(net.model)
-
 if args.model == "adam":
-    optimizer = optim.Adam(net.model.parameters(), 
+    optimizer = optim.Adam(net.parameters(), 
                        lr=args.lr, 
                        weight_decay=5e-6)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=NB_EPOCH)
 
 elif args.model == "plateau":
-    optimizer = optim.SGD(net.model.parameters(), lr=args.lr,
+    optimizer = optim.SGD(net.parameters(), lr=args.lr,
                         momentum=0.9, weight_decay=5e-6)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5)
 
 else:
-    optimizer = optim.SGD(net.model.parameters(), lr=args.lr,
+    optimizer = optim.SGD(net.parameters(), lr=args.lr,
                       momentum=0.9, weight_decay=5e-6)        
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=NB_EPOCH)
 
 # Log file 
 # Initialize log file
-with open("./src/lab3/logs/" + args.log, "w") as f:
+with open("./src/lab1/logs/" + args.log, "w") as f:
     f.write("epoch,train_loss,train_acc,test_loss,test_acc\n")
 
 
@@ -88,34 +88,35 @@ with open("./src/lab3/logs/" + args.log, "w") as f:
 def train(epoch):
     print('\nEpoch: %d' % epoch)
     
-    net.model.train()
-    net.binarization()
+    net.train()
 
-    alpha = 1.0 # Mixup param
+    train_loss = 0
+
+    alpha = 0.4 # Mixup param
 
     for batch_idx, (inputs, targets) in enumerate(trainloader):
         inputs, targets = inputs.to(device), targets.to(device)
+
         inputs, targets_a, targets_b, lam = mixup_data(inputs, targets, alpha, device)
 
-
         optimizer.zero_grad()
-
-        net.binarization() 
-        outputs = net.forward(inputs)
-        net.restore() 
-
+        outputs = net(inputs)
 
         loss = mixup_criterion(criterion, outputs, targets_a, targets_b, lam)
         loss.backward()
         optimizer.step()
-        net.clip()
-        net.save_params()
+
 
         progress_bar(batch_idx, len(trainloader))
 
+        train_loss += loss.item()
+
+    avg_loss = train_loss / len(trainloader)
+    return avg_loss
+
 def test(epoch):
     global best_acc
-    net.model.eval()
+    net.eval()
     
     test_loss = 0
     correct = 0
@@ -124,7 +125,7 @@ def test(epoch):
         for batch_idx, (inputs, targets) in enumerate(testloader):
             inputs, targets = inputs.to(device), targets.to(device)
 
-            outputs = net.forward(inputs)
+            outputs = net(inputs)
             loss = criterion(outputs, targets)
 
             test_loss += loss.item()
@@ -143,25 +144,25 @@ def test(epoch):
     if acc > best_acc:
         print('Saving..')
         state = {
-            'net': net.model.state_dict(),
+            'net': net.state_dict(),
             'acc': acc,
             'epoch': epoch,
         }
         if not os.path.isdir('checkpoint'):
             os.mkdir('checkpoint')
-        torch.save(state, './src/lab3/checkpoint/' + args.name)
+        torch.save(state, './src/lab1/checkpoint/' + args.name)
         best_acc = acc
 
     return avg_loss, acc
 
-best_acc = 0.0
 for epoch in range(start_epoch, start_epoch + NB_EPOCH):
-    train(epoch)
+    train_loss = train(epoch)
     test_loss, test_acc = test(epoch)
-    if args.model == "cosine":
+
+    if args.model == "cosine" or args.model == "adam":
         scheduler.step()
     else:
         scheduler.step(train_loss)
 
-    with open("./src/lab3/logs/" + args.log, "a") as f:
-        f.write(f"{epoch},NaN,NaN,{test_loss:.4f},{test_acc:.2f}\n")
+    with open("./src/lab1/logs/" + args.log, "a") as f:
+        f.write(f"{epoch},{train_loss:.4f},NaN,{test_loss:.4f},{test_acc:.2f}\n")

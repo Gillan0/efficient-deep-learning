@@ -14,11 +14,11 @@ import argparse
 from resnet import *
 from utils import progress_bar
 
-from dataloader import testloader, trainloader
+from dataloader64 import testloader, trainloader
 #from debug_dataloader import trainloader
 
 # Binary Connect : 
-import binaryconnect
+# import binaryconnect
 import FP8Convert
 from mixup import mixup_data, mixup_criterion
 
@@ -29,7 +29,7 @@ parser.add_argument('--resume', '-r', action='store_true',
                     help='resume from checkpoint')
 parser.add_argument('--name', default="ckpt.pth", type=str, help='Model ID')
 parser.add_argument('--log', default='training.log', type=str, help='Log file name (.log)')
-parser.add_argument('--epoch', default=50, type=int, help='Number of epochs')
+parser.add_argument('--epoch', default=80, type=int, help='Number of epochs')
 parser.add_argument('--model', default="cosine", type=str, help="Model of choice : 'cosine', 'plateau', 'adam'")
 
 args = parser.parse_args()
@@ -44,8 +44,8 @@ classes = ('plane', 'car', 'bird', 'cat', 'deer',
 
 # Model
 print('==> Building model..')
-net = binaryconnect.BC(ResNet18()) 
-net = FP8Convert.FP8Convert(ResNet18())
+#net = binaryconnect.BC(ResNet18()) 
+net = FP8Convert.FP6Convert(LightResNetCustomDepthWise3())
 net.model = net.model.to(device) 
 
 if not(args.name):
@@ -53,6 +53,15 @@ if not(args.name):
 
 print('==> Resuming from checkpoint..')
 assert os.path.isdir('./src/lab3/og_models/'), 'Error: no checkpoint directory found!'
+
+
+
+if device == 'cuda':
+    net.model = torch.nn.DataParallel(net.model)
+    cudnn.benchmark = True
+
+
+
 checkpoint = torch.load('./src/lab3/og_models/' + args.name)
 net.model.load_state_dict(checkpoint['net'])
 best_acc = checkpoint['acc']
@@ -91,7 +100,9 @@ def train(epoch):
     net.model.train()
     net.binarization()
 
-    alpha = 1.0 # Mixup param
+    train_loss = 0
+
+    alpha = 0.4 # Mixup param
 
     for batch_idx, (inputs, targets) in enumerate(trainloader):
         inputs, targets = inputs.to(device), targets.to(device)
@@ -112,6 +123,14 @@ def train(epoch):
         net.save_params()
 
         progress_bar(batch_idx, len(trainloader))
+
+
+        train_loss += loss.item()
+
+    avg_loss = train_loss / len(trainloader)
+
+    return avg_loss
+    
 
 def test(epoch):
     global best_acc
@@ -149,16 +168,16 @@ def test(epoch):
         }
         if not os.path.isdir('checkpoint'):
             os.mkdir('checkpoint')
-        torch.save(state, './src/lab3/checkpoint/' + args.name)
+        torch.save(state, './src/lab3/checkpoint/' + args.name+"-6bits")
         best_acc = acc
 
     return avg_loss, acc
 
 best_acc = 0.0
 for epoch in range(start_epoch, start_epoch + NB_EPOCH):
-    train(epoch)
+    train_loss = train(epoch)
     test_loss, test_acc = test(epoch)
-    if args.model == "cosine":
+    if args.model == "cosine" or args.model == "adam":
         scheduler.step()
     else:
         scheduler.step(train_loss)

@@ -1,15 +1,16 @@
 import torch
 import torch.nn.utils.prune as prune
 from resnet import ResNet18
+from mobilenet import MobileNetV2
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 # Load the masked pruned model
-checkpoint_path = "./src/lab4/checkpoint/adam-mixup_pruned_retrained_60_95"  # change to your file
+checkpoint_path = "./src/lab4/checkpoint/mobileNet-adam-mixup_pruned_retrained_60_65"  # change to your file
 checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=True)
 
 # 1️⃣ Recreate model
-net = ResNet18().to(device)
+net = MobileNetV2().to(device)
 
 # 2️⃣ IMPORTANT: Apply dummy pruning so weight_orig / weight_mask exist
 for module in net.modules():

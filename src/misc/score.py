@@ -11,8 +11,9 @@ import os
 import argparse
 
 from resnet import *
+from mobilenet import MobileNetV2
 from utils import progress_bar
-from dataloader import testloader, trainloader
+from dataloader64 import testloader, trainloader
 
 import torchprofile
 
@@ -58,30 +59,30 @@ def test(net):
     return loss, acc
   
 if __name__ == "__main__":
-    linear_percentage = 0.60
-    convolutional_percentage = 0.83
+    linear_percentage = 0.0
+    convolutional_percentage = 0.0
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-    net = ResNet18()
+    net = LightResNetCustomDepthWise3() # ResNetCustom() # MobileNetV2() # ResNet18()
     net = net.to(device) 
-    #net.half()
-    BITS = 32#16
+    net#.half()
+    BITS = 6 #6 #16 #32
+
+    MODEL_DIR ="./src/final_models/"
+    MODEL_NAME = "lightNetDepth-adam-6bits"
 
 
-    MODEL_DIR ="./src/lab3/og_models/"
-    MODEL_NAME = "cosine-mixup-60-83-pruned"
+    if device == 'cuda':
+        net = torch.nn.DataParallel(net)
+        cudnn.benchmark = True
 
 
     checkpoint = torch.load(MODEL_DIR + MODEL_NAME)
     net.load_state_dict(checkpoint['net'])
     criterion = nn.CrossEntropyLoss()    
 
-
-
-    if device == 'cuda':
-        net = torch.nn.DataParallel(net)
-        cudnn.benchmark = True
+    net.eval()
 
     conv_params = count_params(net, torch.nn.Conv2d)
     linear_params = count_params(net, torch.nn.Linear)

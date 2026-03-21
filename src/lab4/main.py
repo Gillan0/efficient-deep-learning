@@ -15,9 +15,10 @@ import os
 import argparse
 
 from resnet import *
+from mobilenet import MobileNetV2
 from utils import progress_bar
 
-from dataloader import testloader, trainloader
+from dataloader128 import testloader, trainloader
 #from debug_dataloader import trainloader
 
 from mixup import mixup_data, mixup_criterion
@@ -41,13 +42,17 @@ classes = ('plane', 'car', 'bird', 'cat', 'deer',
            'dog', 'frog', 'horse', 'ship', 'truck')
 
 # Model
+MODEL_ARCHITECTURE = MobileNetV2
+
 print('==> Building model..')
-net = ResNet18()
+net = MODEL_ARCHITECTURE()
 net = net.to(device) 
+
 
 if device == 'cuda':
     net = torch.nn.DataParallel(net)
     cudnn.benchmark = True
+
 
 if not(args.name):
     raise Exception("No model name")
@@ -145,18 +150,18 @@ def pruning(net, amount_linear=0.0, amount_conv=0.0):
         elif isinstance(module, torch.nn.Linear):
             prune.l1_unstructured(module, name='weight', amount=amount_linear)
 
-    return test(0, amount_linear, amount_conv)
+    return test(0, amount_linear * 100, amount_conv * 100)
 
 if __name__ == "__main__":
 
     
     for loop_linear in range(60, 70, 10):
-        for loop_conv in range(95, 96, 1):
+        for loop_conv in range(60, 75, 1):
 
             amount_linear = loop_linear /100
             amount_conv = loop_conv / 100
 
-            net = ResNet18()
+            net = MODEL_ARCHITECTURE()
             net = net.to(device) 
 
             if device == 'cuda':
@@ -205,8 +210,8 @@ if __name__ == "__main__":
                     else:
                         scheduler.step(train_loss)
 
-                    with open(f"./src/lab4/logs/{args.name}_pruned_retrained_{loop_linear}_{loop_conv}.log", "a") as f:
+                    with open(f"./src/lab4/logs/{args.name}_pruned_retrained_{loop_linear * 100}_{loop_conv * 100}.log", "a") as f:
                         f.write(f"{epoch},{amount_linear },{amount_conv },{pruned_loss:.4f},{pruned_acc:.2f},{test_loss:.4f},{test_acc:.2f}\n")
             else:
-                with open(f"./src/lab4/logs/{args.name}_pruned_{loop_linear}_{loop_conv}.log", "a") as f:
+                with open(f"./src/lab4/logs/{args.name}_pruned_{loop_linear * 100}_{loop_conv * 100}.log", "a") as f:
                     f.write(f"{amount_linear },{amount_conv },{pruned_loss:.4f},{pruned_acc:.2f}\n")

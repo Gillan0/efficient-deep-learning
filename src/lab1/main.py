@@ -14,8 +14,8 @@ import argparse
 from resnet import *
 from utils import progress_bar
 
-from dataloader import testloader, trainloader
-# from debug_dataloader import trainloader
+from dataloader64 import testloader, trainloader
+#from debug_dataloader import trainloader
 
 from mixup import mixup_data, mixup_criterion
 
@@ -26,7 +26,7 @@ parser.add_argument('--resume', '-r', action='store_true',
                     help='resume from checkpoint')
 parser.add_argument('--name', default="ckpt.pth", type=str, help='Model ID')
 parser.add_argument('--log', default='training.log', type=str, help='Log file name (.log)')
-parser.add_argument('--epoch', default=80, type=int, help='Number of epochs')
+parser.add_argument('--epoch', default=300, type=int, help='Number of epochs')
 parser.add_argument('--model', default="cosine", type=str, help="Model of choice : 'cosine', 'plateau', 'adam'")
 
 args = parser.parse_args()
@@ -41,7 +41,7 @@ classes = ('plane', 'car', 'bird', 'cat', 'deer',
 
 # Model
 print('==> Building model..')
-net = ResNet18()
+net = LightResNetCustom()
 net = net.to(device) 
 
 if device == 'cuda':
@@ -52,10 +52,11 @@ if args.resume:
     # Load checkpoint.
     print('==> Resuming from checkpoint..')
     assert os.path.isdir('./src/lab1/checkpoint/'), 'Error: no checkpoint directory found!'
-    checkpoint = torch.load('./src/lab1/checkpoint/ckpt.pth')
+    checkpoint = torch.load('./src/lab1/checkpoint/' + args.name)
     net.load_state_dict(checkpoint['net'])
     best_acc = checkpoint['acc']
     start_epoch = checkpoint['epoch']
+    
 """
 else:
     time.
@@ -80,8 +81,9 @@ else:
 
 # Log file 
 # Initialize log file
-with open("./src/lab1/logs/" + args.log, "w") as f:
-    f.write("epoch,train_loss,train_acc,test_loss,test_acc\n")
+if not(args.resume) : 
+    with open("./src/lab1/logs/" + args.log, "w") as f:
+        f.write("epoch,train_loss,train_acc,test_loss,test_acc\n")
 
 
 # Training
@@ -90,11 +92,11 @@ def train(epoch):
     
     net.train()
 
-    # train_loss = 0
+    train_loss = 0
     # correct = 0
     # total = 0
 
-    alpha = 1.0 # Mixup param
+    alpha = 0.4 # Mixup param
 
     for batch_idx, (inputs, targets) in enumerate(trainloader):
         inputs, targets = inputs.to(device), targets.to(device)
@@ -111,19 +113,12 @@ def train(epoch):
 
         progress_bar(batch_idx, len(trainloader))
 
-    """
         train_loss += loss.item()
-        _, predicted = outputs.max(1)
-        total += targets.size(0)
-        correct += predicted.eq(targets).sum().item()
-
-
 
     avg_loss = train_loss / len(trainloader)
-    acc = 100. * correct / total
 
-    return avg_loss, acc
-    """
+    return avg_loss
+    
 
 def test(epoch):
     global best_acc
@@ -167,7 +162,7 @@ def test(epoch):
     return avg_loss, acc
 
 for epoch in range(start_epoch, start_epoch + NB_EPOCH):
-    train(epoch)
+    train_loss = train(epoch)
     test_loss, test_acc = test(epoch)
 
     if args.model == "cosine" or args.model == "adam":
@@ -176,4 +171,4 @@ for epoch in range(start_epoch, start_epoch + NB_EPOCH):
         scheduler.step(train_loss)
 
     with open("./src/lab1/logs/" + args.log, "a") as f:
-        f.write(f"{epoch},NaN,NaN,{test_loss:.4f},{test_acc:.2f}\n")
+        f.write(f"{epoch},{train_loss:.4f},NaN,{test_loss:.4f},{test_acc:.2f}\n")

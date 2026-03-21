@@ -2,7 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # Load CSV (adjust path if needed)
-NAME = "cosine-mixup"
+NAME = "lightNetDepth3-adam"
 
 DIR = ""
 
