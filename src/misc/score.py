@@ -64,13 +64,13 @@ if __name__ == "__main__":
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-    net = LightResNetCustomDepthWise3() # ResNetCustom() # MobileNetV2() # ResNet18()
+    net = LightResNetCustom() # ResNetCustom() # MobileNetV2() # ResNet18()
     net = net.to(device) 
     net#.half()
-    BITS = 6 #6 #16 #32
+    BITS = 32 #6 #16 #32
 
     MODEL_DIR ="./src/final_models/"
-    MODEL_NAME = "lightNetDepth-adam-6bits"
+    MODEL_NAME = "lightNet-adam"
 
 
     if device == 'cuda':
