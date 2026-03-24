@@ -1,0 +1,11 @@
+epoch,train_loss,train_acc,test_loss,test_acc
+0,NaN,NaN,0.3355,90.47
+1,NaN,NaN,0.3359,89.96
+2,NaN,NaN,0.3502,90.45
+3,NaN,NaN,0.3293,90.46
+4,NaN,NaN,0.3292,90.48
+5,NaN,NaN,0.3328,90.45
+6,NaN,NaN,0.3420,90.70
+7,NaN,NaN,0.3584,89.65
+8,NaN,NaN,0.3195,90.63
+9,NaN,NaN,0.3472,90.73

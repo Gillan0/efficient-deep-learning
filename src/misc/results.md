@@ -27,10 +27,12 @@ mobileNet-adam-mixup-pruned-60-65 (half) : score = 0.2366, acc = 90.320%
 mobileNet-adam-mixup-pruned-60-65 : score = 0.4732, acc = 90.420%
 
 Batch : 64 
-lightNet-adam : score : Score = 0.0968, acc = 91.240%
+lightNet-adam : score : Score = 0.0968, acc = 91.240%, p : 0.0179, ops : 0.0788
 lightNet-adam (half) : score = 0.0484, acc = 91.240%
-lightNet-adam (8bits) : score =: 0.0242, acc = 90.730%
-lightNet-adam (6bits) : score = 0.0181, acc = 91.420%
+lightNet-adam (8bits) : score =: 0.0242, acc = 90.730%, p : 0.0045, ops : 0.0197
+lightNet-adam (6bits) : score = 0.0181, acc = 91.420%, p : 0.0034, ops : 0.0148
 
 lightNetDepth : score = 0.0283, acc = 90.400 %, p : 0.0068, ops : 0.0214
+lightNetDepth (16 bits): score = 0.0141, acc = 90.400 %, p : 0.0034, ops : 0.0107
+lightNetDepth (8 bits) : score = 0.0071, acc = 90.060 %, p : 0.0014, ops : 0.0054
 lightNetDepth (6 bits) : score : 0.0053, acc = 90.440, p : 0.0013, ops : 0.0040
